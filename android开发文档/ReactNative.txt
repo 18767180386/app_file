@@ -1,0 +1,208 @@
+需要以管理员权限打开命令提示符窗口
+
+@powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ((new-object net.webclient).DownloadString('https://chocolatey.org/install.ps1'))" && SET PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin
+
+作者：乐百川
+链接：https://www.jianshu.com/p/831aa4a280e7
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+
+
+
+choco install python2
+
+
+安装之前先检查是否已有node.js环境，在cmd 命令下输入node -v, 出现如
+
+
+http://blog.csdn.net/qiyei2009/article/details/78820207
+
+
+npm install -g yarn react-native-cli
+
+npm install -g react-native-cli
+
+
+http://blog.csdn.net/mymy_blog/article/details/73277884
+
+
+组合1
+
+  create-react-native-app AwesomeProject
+  cd AwesomeProject
+  npm start
+
+
+组合2 
+react-native init AwesomeProject 
+cd AwesomeProject 
+react-native run-android
+
+
+
+http://blog.csdn.net/cuoban/article/details/53897406
+
+npm install
+
+
+ 刚开始玩React-native，菜鸟一个。环境配置好了，就急着想看看别人的项目。github上下载好了别人的作品，o(︶︿︶)o 唉，发现有个问题：
+
+    有点坑爹，难道每次我运行别人的项目，在手机上运行，我都需要在项目的目录下进行  npm install 现行下载node_modules，然后才能运行安装整个项目。
+
+    (假如直接运行，就会出现command ‘start ’ unrecognized，Did you mean to run this inside a react-native project?)
+
+     毕竟别人上传项目时候，不可能把models也上传上去。呵呵。
+
+
+
+    难道就没有其他的方法？？？
+
+    我就尝试，把别的项目中的models拷到新下的项目中，是不太可行的，总是有问题。
+	
+	
+	
+	https://www.cnblogs.com/cxscode/p/7140012.html   安装android Studio和运行react native项目（跳坑篇）
+	
+	
+	
+	http://blog.csdn.net/maxwell_nc/article/details/60960864
+	
+	
+	
+	react-native start
+	 npm install 现行下载node_modules，
+	
+	npm install -g react-native-cli
+	npm config set registry https://registry.npm.taobao.org
+    npm config set disturl https://npm.taobao.org/dist
+
+	react-native init FirstProject
+	
+	react-native start
+	
+	
+	http://localhost:8081/index.android.bundle?platform=android
+	
+	react-native run-android
+	
+	
+	
+	解决React Native unable to load script from assets index.android.bundle on windows
+	
+	方法一：设置IP和端口
+具体步骤：报错页面晃动手机，显示菜单 =》 点击Dev Settings =》 点击Debug server host & port for device =》 设置IP和端口（ex:192.168.0.20:8081）=》 点击返回 =》 页面是空白，再次点击摇一摇，选择Reload JS程序就显示出来了。
+
+如果这种方法还是不行继续往下看。
+
+ 
+
+方法二：原因没有找到assets下文件，需要手动创建并设置
+1.首先手动在main下建立一个assets文件夹
+2.然后cmd 进入项目的根目录下执行：
+
+1
+React-native bundle --platform Android --dev false --entry-file index.android.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res
+3.在执行 react-native run-android；
+
+ 
+
+到这就结束了，基本这2个方法就可以解决React Native unable to load script from assets 了。
+
+http://localhost:8081/index.android.bundle?platform=android
+
+
+http://192.168.3.199:8081/index.android.bundle?platform=android
+
+
+http://blog.csdn.net/qq_25827845/article/details/52974991
+
+
+
+https://github.com/start-react/native-starter-kit  start-react/native-starter-kit
+
+
+http://blog.csdn.net/qq_25827845/article/details/52974991  React—Native开发之 Could not connect to development server（Android）解决方法
+
+
+http://blog.csdn.net/teagreen_red/article/details/77074333    react native学习笔记1——webstorm安装与配置
+
+
+
+http://blog.csdn.net/qiyei2009/article/details/78820207  React Native开发一 webstorm搭建React Native开发环境
+
+node -v
+
+where node 
+
+C:\Program Files\nodejs\node.exe
+
+
+C:\Users\john\AppData\Roaming\npm\node_modules\react-native-cli
+
+
+
+http://blog.csdn.net/qiyei2009/article/details/78820207  React Native开发一 webstorm搭建React Native开发环境  重要
+
+http://blog.csdn.net/teagreen_red/article/details/77074333   React Native开发一 webstorm搭建React Native开发环境  重要
+
+
+https://www.jianshu.com/p/97692b1c451d    React Native  文档结构说明 
+
+其中关键的文件有：
+
+android文件夹，就是一个可以用android studio打开的android项目。
+ios文件夹，是一个可以用xcode打开的ios项目。
+index.android.js，这是android的React Native入口文件。
+index.ios.js，这是ios的React Native入口文件。
+package.json，类似android studio的build.gradle，你依赖的库都写在里面。
+node_module文件夹，你依赖的库下载下来都存放在里面，属于git的忽略文件，你要找的依赖库源码也在里面，包括React和React Native。
+jscode文件夹，是自己创建的文件夹，用来存放自己写的js文件。
+这里需要理解的是：
+
+package.json，类似于android studio中的build.gradle添加远程依赖，不同的是，package.json大多数时候不需要我们手动添加，我们只需要在根目录通过命令行，npm install xxxxxx --save 就可以依赖一个库了。
+
+install之后，库的依赖信息，自动被写到package.json里面，对应的库也会被下载到node_module文件夹中，类似android studio依赖后把aar同步到本地。
+
+作者：恋猫月亮
+链接：https://www.jianshu.com/p/97692b1c451d
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+	node_module是一个忽略文件，提交的时候不需要提交到git上，类似android studio远程依赖下来的aar，也不会提交到git上。其他人在使用React Native项目时，只需要npm install，工程就会根据package.json，去同步下载各个依赖库到node_module。
+
+注：有时候还需要运行react-native link 或 react-native link xxx，这是因为有些第三方库是通过原生代码加React Native实现的，通过这个命令，可以自动把相关的配置代码，自动添加到android和ios工程中。
+
+作者：恋猫月亮
+链接：https://www.jianshu.com/p/97692b1c451d
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+
+     react-native init FirstProject
+	
+	react-native start  启动8081端口
+	
+	
+	http://localhost:8081/index.android.bundle?platform=android
+	
+	react-native run-android  编译apk
+	
+	
+	https://www.jianshu.com/p/97692b1c451d  开发调试
+	
+	https://www.jianshu.com/p/50dbfd2b92c0
+	
+	
+react-native 语法 
+
+http://blog.csdn.net/shuang__zi/article/details/53943920
+https://www.jianshu.com/p/dcd26c3375ca
+
+https://www.cnblogs.com/sanshao221/p/6530123.html
+http://blog.csdn.net/mapbar_front/article/details/71541247  es6
+
+http://blog.csdn.net/wisimer/article/details/52205768  ReactNative从网络获取数据并显示
+https://www.jianshu.com/p/1c5dc5cd6d97
+
+https://www.cnblogs.com/maoyazhi/p/5382565.html
+	
