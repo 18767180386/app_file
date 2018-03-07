@@ -1,0 +1,144 @@
+Android企业级架构-仿微信-工程初建
+
+笔者使用的是Mac，在某些方面与其它系统存在些区别，如发现不同，可自行搜索！
+
+打开Android Studio，创建一个Project，添加如下，然后下一步：
+
+
+创建新工程
+选择Phone and Tablet，最低版本选择API 16 Android 4.1 (Jelly Bean)，现在在市场上的Android系统，版本4.1以下的机型已经非常少了，所以在开发过程中，如不是非常有必要，基本可以忽略不兼容，选择完后下一步。3. 选择是否需要添加一个Activity，我们选择默认的Empty Activity后下一步，修改MainActivity为WelcomeActivity，layout名称修改为activity_welcome，然后点击完成。
+工程创建完成，等待加载完成后，我们继续配置工程的各个版本号。首先我们先看一下Android工程的目录结构，如下图，直接关注红框的位置就好：
+
+
+工程目录结构
+首先我们点击第一个红框的位置，选择Project选项后，目录结构就会变成如图所示的样子了，这个目录查看起来相对较杂，但是内容是最全的，很多时候我们需要查看Build目录下的文件时，或生成trace文件，就会转成这种方式去寻找我们需要的文件。第二个红框是工程的主体结构，我们现在只需要关注app->src->main目录和app->build.gradle文件就可以了，前者是代码、资源文件的存放位置，后者是gradle配置的地方，如有人不知道gradle，我们后续会讲gradle的使用。第三个红框是gradle的总配置文件，第四个红框是各个Module的管理文件，如有人不太了解这些，先记住这些文件的位置即可。
+
+重点来了
+
+单一职责俗话说，盖楼虽是一砖一瓦砌起来的，但地基打的扎不扎实决定了楼的高度。我们写代码做工程是相同道理，如果基础搭不好，那后期维护时可就傻X了。
+对于笔者的习惯，喜欢把功能细化，分别抽出公共Library，便于后期扩展和移植。比如网络请求、数据库管理、图片加载、UI组件等功能，最好不要集中到一起，搞的代码混乱，造成维护成本变高。面向对象的原则之一：单一职责。类或功能的职责应设计单一，不可过多承担责任，所谓能力越大责任越大在这里是不可取的。举个粟子：Android开发中我们的UI线程应该只去处理UI的变化，如果在UI线程发起耗时操作（如网络请求），那么UI便会卡顿，超过5秒还会ANR，造成不好的用户体验。这就是单一职责的设计。
+所以，在真正的开发之前，我们应该提前先把必要的地基搭好，包括网络请求、图片加载、数据库管理和UI组件的管理。每个功能，我们都单独创建一个Library，这样在搞其它工程时，直接引用即可，方便高效。
+
+创建网络库：New Module->Android Library->如图
+
+
+创建Library
+
+Application/Library name: network
+Module name: network
+Package name: com.monch.network
+
+创建数据库管理Library，步骤同上，将名称改为database，包名为com.monch.database
+创建小组件库，因为图片加载也是属于UI组件，所以一同包涵在内，步骤同上，将名称改为widget，包名为com.monch.widget
+配置版本号
+
+由于Library较多，当后期维护时，如果提升版本号，是个很烦人的事，所以我们要统一管理版本号。首先我们打开app工程下面的build.gradle文件，看一下哪些版本号可以抽出来。
+
+
+app工程下的build.gradle文件
+
+compileSdkVersion：编译版本，可共用buildToolsVersion：编译工具版本，可共用applicationId：应用ID，唯一不可共用minSdkVersion：最低支持Sdk版本，可共用targetSdkVersion：目标Sdk版本，可共用versionCode：版本号，每个Module都不一样，为方便管理，也可以抽出统一管理versionName：版本名称，每个Module都不一样，同上androidTestCompile：Android测试编译版本号，可共用com.android.support:appcompat：Android扩展支持包，可共用junit：测试工具，可共用
+打开图2所指示的第三个红框的文件，也就是总工程的build.gradle文件，我们可以在底部添加如下代码：
+
+ext {
+    // App版本号
+    appVersionCode = 1
+    appVersionName = "1.0"
+
+    // Network Library版本号
+    networkVersionCode = 1
+    networkVersionName = "1.0"
+
+    // Database Library版本号
+    databaseVersionCode = 1
+    databaseVersionName = "1.0"
+
+    // Widget Library版本号
+    widgetVersionCode = 1
+    widgetVersionName = "1.0"
+    
+    // 公共版本号
+    compileSdkVersion = 25
+    buildToolsVersion = "25.0.2"
+    minSdkVersion = 16
+    targetSdkVersion = 25
+    supportVersion = "25.1.0"
+    androidTestCompileVersion = "2.2.2"
+    junitVersion = "4.12"
+}
+这是在gradle文件中定义变量，在各个Module目录下的build.gradle文件中引用方法为 rootProject.ext.xxx
+在app目录下的build.gradle文件中，找到对应的版本号，将变量名写上去，在后续更新中，只需要修改一个地方，便可以全局替换，极大的降低了修改成本，修改后如下：
+app build.gradle
+
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    defaultConfig {
+        applicationId "com.monch.ichat"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode rootProject.ext.appVersionCode
+        versionName rootProject.ext.appVersionName
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    androidTestCompile("com.android.support.test.espresso:espresso-core:$rootProject.ext.androidTestCompileVersion", {
+        exclude group: 'com.android.support', module: 'support-annotations'
+    })
+    compile "com.android.support:appcompat-v7:$rootProject.ext.supportVersion"
+    testCompile "junit:junit:$rootProject.ext.junitVersion"
+}
+其它的Library中的build.gradle文件跟上面替换方式相同，只是在versionCode和versionName的指向需要修改为对应的变量。
+
+下一步，统一AndroidManifest文件的属性
+
+在Library较多时，由于打包是将所有的文件合并，所以如果Manifest文件的属性配置有冲突时，会导致打包失败。
+首先打开app工程下的AndroidManifest文件
+
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.monch.ichat">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity android:name=".WelcomeActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
+直接查看application标签的属性：
+android:allowBackup="true" 这是一个危险的属性，当这个属性为true时，任何用户可直接使用adb来备份和恢复你的数据，所以如果不是非常有必要，这个属性一定要设置为false
+android:icon 这是设置App图标
+android:label 这是设置App名称，我们找到这个字符串，改名为微信2号
+android:supportsRtl 这是设置是否开启左右手转换功能，这个属性笔者一般都设置为false，国内对这个功能基本是阉割，如果是做海外产品的，可以打开
+android:theme 这是设置主题的属性
+
+5个属性了解完，我们可以把android:allowBackup和android:supportsRtl设置为false。
+然后依次打开database、network、widget三个库的AndroidManifest文件，将整个application标签删除即可，因为它们不需要。
+
+至此，工程的大框已经差不多了，下一篇，我们将开启真正的编码之旅！
+
+作者：MonchChen
+链接：https://www.jianshu.com/p/cd81f808eb27
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。

@@ -1,0 +1,10 @@
+淘宝
+http://blog.csdn.net/u011537073/article/details/50252981
+https://www.jianshu.com/p/add0d4a03914
+http://blog.csdn.net/guojin08/article/details/72697699
+1，所以Application中一般都是采用IntentService来加载SDK的。
+2，即SplashFragment+StubView的方式启动App。
+
+
+微信
+http://blog.csdn.net/baidu_26352053/article/details/74488726

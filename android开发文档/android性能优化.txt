@@ -1,7 +1,7 @@
 https://www.cnblogs.com/cr330326/p/8011523.html
 http://blog.csdn.net/shareus/article/details/51454915
 http://blog.csdn.net/shareus/article/details/51454915
-
+https://www.jianshu.com/p/add0d4a03914
 2，TraceView
 
 TraceView 是 Android SDK 自带的工具，用来分析函数调用过程，可以对 Android 的应用程序以及 Framework 层的代码进行性能分析。
