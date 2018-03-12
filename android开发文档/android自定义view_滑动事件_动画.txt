@@ -1,1 +1,365 @@
-{\rtf1}
+（一）组合控件
+
+（二）自绘控件
+
+public class CounterView extends View implements OnClickListener {
+ 2 
+ 3     // 定义画笔
+ 4     private Paint mPaint;
+ 5     // 用于获取文字的宽和高
+ 6     private Rect mBounds;
+ 7     // 计数值，每点击一次本控件，其值增加1
+ 8     private int mCount;
+ 9 
+10     public CounterView(Context context, AttributeSet attrs) {
+11         super(context, attrs);
+12 
+13         // 初始化画笔、Rect
+14         mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+15         mBounds = new Rect();
+16         // 本控件的点击事件
+17         setOnClickListener(this);
+18     }
+19 
+20     @Override
+21     protected void onDraw(Canvas canvas) {
+22         super.onDraw(canvas);
+23 
+24         mPaint.setColor(Color.BLUE);
+25         // 绘制一个填充色为蓝色的矩形
+26         canvas.drawRect(0, 0, getWidth(), getHeight(), mPaint);
+27 
+28         mPaint.setColor(Color.YELLOW);
+29         mPaint.setTextSize(50);
+30         String text = String.valueOf(mCount);
+31         // 获取文字的宽和高
+32         mPaint.getTextBounds(text, 0, text.length(), mBounds);
+33         float textWidth = mBounds.width();
+34         float textHeight = mBounds.height();
+35 
+36         // 绘制字符串
+37         canvas.drawText(text, getWidth() / 2 - textWidth / 2, getHeight() / 2
+38                 + textHeight / 2, mPaint);
+39     }
+40 
+41     @Override
+42     public void onClick(View v) {
+43         mCount ++;
+44         
+45         // 重绘
+46         invalidate();
+47     }
+48 
+49 }
+复制代码
+
+（三）继承控件
+
+
+https://www.jianshu.com/p/c84693096e41  自定义控件
+
+
+那我们怎么从int数据中提取测量模式和尺寸呢？放心，不用你每次都要写一次移位<<和取且&操作，Android内置类MeasureSpec帮我们写好啦~，我们只需按照下面方法就可以拿到啦：
+
+int widthMode = MeasureSpec.getMode(widthMeasureSpec);
+int widthSize = MeasureSpec.getSize(widthMeasureSpec);
+爱思考的你肯定会问，既然我们能通过widthMeasureSpec拿到宽度尺寸大小，那我们还要测量模式干嘛？测量模式会不会是多余的？请注意：这里的的尺寸大小并不是最终我们的View的尺寸大小，而是父View提供的参考大小。我们看看测量模式，测量模式是干啥用的呢？
+
+测量模式	表示意思
+UNSPECIFIED	父容器没有对当前View有任何限制，当前View可以任意取尺寸
+EXACTLY	当前的尺寸就是当前View应该取的尺寸
+AT_MOST	当前尺寸是当前View能取的最大尺寸
+而上面的测量模式跟我们的布局时的wrap_content、match_parent以及写成固定的尺寸有什么对应关系呢？
+
+match_parent--->EXACTLY。怎么理解呢？match_parent就是要利用父View给我们提供的所有剩余空间，而父View剩余空间是确定的，也就是这个测量模式的整数里面存放的尺寸。
+wrap_content--->AT_MOST。怎么理解：就是我们想要将大小设置为包裹我们的view内容，那么尺寸大小就是父View给我们作为参考的尺寸，只要不超过这个尺寸就可以啦，具体尺寸就根据我们的需求去设定。
+固定尺寸（如100dp）--->EXACTLY。用户自己指定了尺寸大小，我们就不用再去干涉了，当然是以指定的大小为主啦。
+
+作者：huachao1001
+链接：https://www.jianshu.com/p/c84693096e41
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+
+
+package com.hc.studyview;
+
+import android.content.Context;
+import android.content.res.TypedArray;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.util.AttributeSet;
+import android.util.Log;
+import android.view.MotionEvent;
+import android.view.View;
+
+/**
+ * Package com.hc.studyview
+ * Created by HuaChao on 2016/6/3.
+ */
+public class MyView extends View {
+
+    private int defalutSize;
+
+    public MyView(Context context) {
+        super(context);
+    }
+
+    public MyView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        //第二个参数就是我们在styles.xml文件中的<declare-styleable>标签
+        //即属性集合的标签，在R文件中名称为R.styleable+name
+        TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.MyView);
+        //第一个参数为属性集合里面的属性，R文件名称：R.styleable+属性集合名称+下划线+属性名称
+        //第二个参数为，如果没有设置这个属性，则设置的默认的值
+        defalutSize = a.getDimensionPixelSize(R.styleable.MyView_default_size, 100);
+        //最后记得将TypedArray对象回收
+        a.recycle();
+    }
+
+
+    private int getMySize(int defaultSize, int measureSpec) {
+        int mySize = defaultSize;
+
+        int mode = MeasureSpec.getMode(measureSpec);
+        int size = MeasureSpec.getSize(measureSpec);
+
+        switch (mode) {
+            case MeasureSpec.UNSPECIFIED: {//如果没有指定大小，就设置为默认大小
+                mySize = defaultSize;
+                break;
+            }
+            case MeasureSpec.AT_MOST: {//如果测量模式是最大取值为size
+                //我们将大小取最大值,你也可以取其他值
+                mySize = size;
+                break;
+            }
+            case MeasureSpec.EXACTLY: {//如果是固定的大小，那就不要去改变它
+                mySize = size;
+                break;
+            }
+        }
+        return mySize;
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        int width = getMySize(defalutSize, widthMeasureSpec);
+        int height = getMySize(defalutSize, heightMeasureSpec);
+
+        if (width < height) {
+            height = width;
+        } else {
+            width = height;
+        }
+
+        setMeasuredDimension(width, height);
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        //调用父View的onDraw函数，因为View这个类帮我们实现了一些
+        // 基本的而绘制功能，比如绘制背景颜色、背景图片等
+        super.onDraw(canvas);
+        int r = getMeasuredWidth() / 2;//也可以是getMeasuredHeight()/2,本例中我们已经将宽高设置相等了
+        //圆心的横坐标为当前的View的左边起始位置+半径
+        int centerX = getLeft() + r;
+        //圆心的纵坐标为当前的View的顶部起始位置+半径
+        int centerY = getTop() + r;
+
+        Paint paint = new Paint();
+        paint.setColor(Color.GREEN);
+        //开始绘制
+        canvas.drawCircle(centerX, centerY, r, paint);
+
+
+    }
+
+    
+}
+
+作者：huachao1001
+链接：https://www.jianshu.com/p/c84693096e41
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+
+3，自定义ViewGroup
+
+自定义View的过程很简单，就那几步，可自定义ViewGroup可就没那么简单啦~，因为它不仅要管好自己的，还要兼顾它的子View。我们都知道ViewGroup是个View容器，它装纳child View并且负责把child View放入指定的位置。我们假象一下，如果是让你负责设计ViewGroup，你会怎么去设计呢？
+
+1.首先，我们得知道各个子View的大小吧，只有先知道子View的大小，我们才知道当前的ViewGroup该设置为多大去容纳它们。
+2.根据子View的大小，以及我们的ViewGroup要实现的功能，决定出ViewGroup的大小
+3.ViewGroup和子View的大小算出来了之后，接下来就是去摆放了吧，具体怎么去摆放呢？这得根据你定制的需求去摆放了，比如，你想让子View按照垂直顺序一个挨着一个放，或者是按照先后顺序一个叠一个去放，这是你自己决定的。
+4.已经知道怎么去摆放还不行啊，决定了怎么摆放就是相当于把已有的空间"分割"成大大小小的空间，每个空间对应一个子View，我们接下来就是把子View对号入座了，把它们放进它们该放的地方去。
+
+作者：huachao1001
+链接：https://www.jianshu.com/p/c84693096e41
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+package com.hc.studyview;
+
+import android.content.Context;
+import android.util.AttributeSet;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+
+/**
+ * Package com.hc.studyview
+ * Created by HuaChao on 2016/6/3.
+ */
+public class MyViewGroup extends ViewGroup {
+    public MyViewGroup(Context context) {
+        super(context);
+    }
+
+    public MyViewGroup(Context context, AttributeSet attrs) {
+
+        super(context, attrs);
+    }
+
+    /***
+     * 获取子View中宽度最大的值
+     */
+    private int getMaxChildWidth() {
+        int childCount = getChildCount();
+        int maxWidth = 0;
+        for (int i = 0; i < childCount; i++) {
+            View childView = getChildAt(i);
+            if (childView.getMeasuredWidth() > maxWidth)
+                maxWidth = childView.getMeasuredWidth();
+
+        }
+
+        return maxWidth;
+    }
+
+    /***
+     * 将所有子View的高度相加
+     **/
+    private int getTotleHeight() {
+        int childCount = getChildCount();
+        int height = 0;
+        for (int i = 0; i < childCount; i++) {
+            View childView = getChildAt(i);
+            height += childView.getMeasuredHeight();
+
+        }
+
+        return height;
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        //将所有的子View进行测量，这会触发每个子View的onMeasure函数
+        //注意要与measureChild区分，measureChild是对单个view进行测量
+        measureChildren(widthMeasureSpec, heightMeasureSpec);
+
+        int widthMode = MeasureSpec.getMode(widthMeasureSpec);
+        int widthSize = MeasureSpec.getSize(widthMeasureSpec);
+        int heightMode = MeasureSpec.getMode(heightMeasureSpec);
+        int heightSize = MeasureSpec.getSize(heightMeasureSpec);
+
+        int childCount = getChildCount();
+
+        if (childCount == 0) {//如果没有子View,当前ViewGroup没有存在的意义，不用占用空间
+            setMeasuredDimension(0, 0);
+        } else {
+            //如果宽高都是包裹内容
+            if (widthMode == MeasureSpec.AT_MOST && heightMode == MeasureSpec.AT_MOST) {
+                //我们将高度设置为所有子View的高度相加，宽度设为子View中最大的宽度
+                int height = getTotleHeight();
+                int width = getMaxChildWidth();
+                setMeasuredDimension(width, height);
+
+            } else if (heightMode == MeasureSpec.AT_MOST) {//如果只有高度是包裹内容
+                //宽度设置为ViewGroup自己的测量宽度，高度设置为所有子View的高度总和
+                setMeasuredDimension(widthSize, getTotleHeight());
+            } else if (widthMode == MeasureSpec.AT_MOST) {//如果只有宽度是包裹内容
+                //宽度设置为子View中宽度最大的值，高度设置为ViewGroup自己的测量值
+                setMeasuredDimension(getMaxChildWidth(), heightSize);
+
+            }
+        }
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        int count = getChildCount();
+        //记录当前的高度位置
+        int curHeight = t;
+        for (int i = 0; i < count; i++) {
+            View child = getChildAt(i);
+            int height = child.getMeasuredHeight();
+            int width = child.getMeasuredWidth();
+            child.layout(l, curHeight, l + width, curHeight + height);
+            curHeight += height;
+        }
+    }
+
+   
+}
+
+作者：huachao1001
+链接：https://www.jianshu.com/p/c84693096e41
+來源：简书
+
+Android事件分发机制
+
+http://blog.csdn.net/carson_ho/article/details/54136311
+
+
+
+Touch事件的后续事件（MOVE、UP）层级传递
+
+
+若给控件注册了Touch事件，每次点击都会触发一系列action事件（ACTION_DOWN，ACTION_MOVE，ACTION_UP等）
+
+当dispatchTouchEvent（）事件分发时，只有前一个事件（如ACTION_DOWN）返回true，才会收到后一个事件（ACTION_MOVE和ACTION_UP） 
+
+
+即如果在执行ACTION_DOWN时返回false，后面一系列的ACTION_MOVE、ACTION_UP事件都不会执行 
+从上面对事件分发机制分析知：
+
+dispatchTouchEvent()、 onTouchEvent() 消费事件、终结事件传递（返回true）
+而onInterceptTouchEvent 并不能消费事件，它相当于是一个分叉口起到分流导流的作用，对后续的ACTION_MOVE和ACTION_UP事件接收起到非常大的作用 
+请记住：接收了ACTION_DOWN事件的函数不一定能收到后续事件（ACTION_MOVE、ACTION_UP） 
+这里给出ACTION_MOVE和ACTION_UP事件的传递结论：
+
+结论1 
+若对象（Activity、ViewGroup、View）的dispatchTouchEvent()分发事件后消费了事件（返回true），那么收到ACTION_DOWN的函数也能收到ACTION_MOVE和ACTION_UP 
+黑线：ACTION_DOWN事件传递方向 
+红线：ACTION_MOVE 、 ACTION_UP事件传递方向 
+
+
+
+结论2 
+若对象（Activity、ViewGroup、View）的onTouchEvent()处理了事件（返回true），那么ACTION_MOVE、ACTION_UP的事件从上往下传到该View后就不再往下传递，而是直接传给自己的onTouchEvent()& 结束本次事件传递过程。 
+黑线：ACTION_DOWN事件传递方向 
+红线：ACTION_MOVE、ACTION_UP事件传递方向 
+
+
+
+onTouch()和onTouchEvent()的区别
+
+该2个方法都是在View.dispatchTouchEvent（）中调用
+但onTouch（）优先于onTouchEvent执行；若手动复写在onTouch（）中返回true（即 将事件消费掉），将不会再执行onTouchEvent（）
+注：若1个控件不可点击（即非enable），那么给它注册onTouch事件将永远得不到执行，具体原因看如下代码
+// &&为短路与，即如果前面条件为false，将不再往下执行
+//  故：onTouch（）能够得到执行需2个前提条件：
+     // 1. mOnTouchListener的值不能为空
+     // 2. 当前点击的控件必须是enable的
+mOnTouchListener != null && (mViewFlags & ENABLED_MASK) == ENABLED &&  
+            mOnTouchListener.onTouch(this, event)
+
+// 对于该类控件，若需监听它的touch事件，就必须通过在该控件中重写onTouchEvent（）来实现
+
+
+Android事件冲突场景分析及一般解决思路
+
+

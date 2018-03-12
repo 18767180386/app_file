@@ -236,6 +236,7 @@ public void customThreadPool(View view) {
         };  
         myThreadPool.execute(runnable);  
     }  
+	
 }  
 class MyThreadPool extends ThreadPoolExecutor{  
   
@@ -261,4 +262,604 @@ class MyThreadPool extends ThreadPoolExecutor{
         //当调用shutDown()或者shutDownNow()时会触发该方法  
         Log.d("google_lenve_fb", "terminated: 线程池关闭！");  
     }  
+	
+Java线程(三)：线程协作-生产者/消费者问题
+	
+	  假设有这样一种情况，有一个盘子，盘子里只能放一个鸡蛋，A线程专门往盘子里放鸡蛋，如果盘子里有鸡蛋，则一直等到盘子里没鸡蛋，B线程专门从盘子里取鸡蛋，如果盘子里没鸡蛋，则一直等到盘子里有鸡蛋。这里盘子是一个互斥区，每次放鸡蛋是互斥的，每次取鸡蛋也是互斥的，A线程放鸡蛋，如果这时B线程要取鸡蛋，由于A没有释放锁，B线程处于等待状态，进入阻塞队列，放鸡蛋之后，要通知B线程取鸡蛋，B线程进入就绪队列，反过来，B线程取鸡蛋，如果A线程要放鸡蛋，由于B线程没有释放锁，A线程处于等待状态，进入阻塞队列，取鸡蛋之后，要通知A线程放鸡蛋，A线程进入就绪队列。我们希望当盘子里有鸡蛋时，A线程阻塞，B线程就绪，盘子里没鸡蛋时，A线程就绪，B线程阻塞，代码如下：
+
+[java] view plain copy
+import java.util.ArrayList;  
+import java.util.List;  
+/** 定义一个盘子类，可以放鸡蛋和取鸡蛋 */  
+public class Plate {  
+    /** 装鸡蛋的盘子 */  
+    List<Object> eggs = new ArrayList<Object>();  
+    /** 取鸡蛋 */  
+    public synchronized Object getEgg() {  
+        while (eggs.size() == 0) {  
+            try {  
+                wait();  
+            } catch (InterruptedException e) {  
+                e.printStackTrace();  
+            }  
+        }  
+        Object egg = eggs.get(0);  
+        eggs.clear();// 清空盘子  
+        notify();// 唤醒阻塞队列的某线程到就绪队列  
+        System.out.println("拿到鸡蛋");  
+        return egg;  
+    }  
+    /** 放鸡蛋 */  
+    public synchronized void putEgg(Object egg) {  
+        while (eggs.size() > 0) {  
+            try {  
+                wait();  
+            } catch (InterruptedException e) {  
+                e.printStackTrace();  
+            }  
+        }  
+        eggs.add(egg);// 往盘子里放鸡蛋  
+        notify();// 唤醒阻塞队列的某线程到就绪队列  
+        System.out.println("放入鸡蛋");  
+    }  
+    static class AddThread implements Runnable  {  
+        private Plate plate;  
+        private Object egg = new Object();  
+        public AddThread(Plate plate) {  
+            this.plate = plate;  
+        }  
+        public void run() {  
+            plate.putEgg(egg);  
+        }  
+    }  
+    static class GetThread implements Runnable  {  
+        private Plate plate;  
+        public GetThread(Plate plate) {  
+            this.plate = plate;  
+        }  
+        public void run() {  
+            plate.getEgg();  
+        }  
+    }  
+    public static void main(String args[]) {  
+        Plate plate = new Plate();  
+        for(int i = 0; i < 10; i++) {  
+            new Thread(new AddThread(plate)).start();  
+            new Thread(new GetThread(plate)).start();  
+        }  
+    }  
+}  
+        输出结果：
+[java] view plain copy
+放入鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+        程序开始，A线程判断盘子是否为空，放入一个鸡蛋，并且唤醒在阻塞队列的一个线程，阻塞队列为空；假设CPU又调度了一个A线程，盘子非空，执行等待，这个A线程进入阻塞队列；然后一个B线程执行，盘子非空，取走鸡蛋，并唤醒阻塞队列的A线程，A线程进入就绪队列，此时就绪队列就一个A线程，马上执行，放入鸡蛋；如果再来A线程重复第一步，在来B线程重复第二步，整个过程就是生产者(A线程)生产鸡蛋，消费者(B线程)消费鸡蛋。
+        前段时间看了张孝祥老师线程的视频，讲述了一个其学员的面试题，也是线程通信的，在此也分享一下。
+
+        题目：子线程循环10次，主线程循环100次，如此循环100次，好像是空中网的笔试题。
+
+[java] view plain copy
+public class ThreadTest2 {  
+    public static void main(String[] args) {  
+        final Business business = new Business();  
+        new Thread(new Runnable() {  
+            @Override  
+            public void run() {  
+                threadExecute(business, "sub");  
+            }  
+        }).start();  
+        threadExecute(business, "main");  
+    }     
+    public static void threadExecute(Business business, String threadType) {  
+        for(int i = 0; i < 100; i++) {  
+            try {  
+                if("main".equals(threadType)) {  
+                    business.main(i);  
+                } else {  
+                    business.sub(i);  
+                }  
+            } catch (InterruptedException e) {  
+                e.printStackTrace();  
+            }  
+        }  
+    }  
+}  
+class Business {  
+    private boolean bool = true;  
+    public synchronized void main(int loop) throws InterruptedException {  
+        while(bool) {  
+            this.wait();  
+        }  
+        for(int i = 0; i < 100; i++) {  
+            System.out.println("main thread seq of " + i + ", loop of " + loop);  
+        }  
+        bool = true;  
+        this.notify();  
+    }     
+    public synchronized void sub(int loop) throws InterruptedException {  
+        while(!bool) {  
+            this.wait();  
+        }  
+        for(int i = 0; i < 10; i++) {  
+            System.out.println("sub thread seq of " + i + ", loop of " + loop);  
+        }  
+        bool = false;  
+        this.notify();  
+    }  
+}  
+大家注意到没有，在调用wait方法时，都是用while判断条件的，而不是if，在wait方法说明中，也推荐使用while，因为在某些特定的情况下，
+线程有可能被假唤醒，使用while会循环检测更稳妥。wait和notify方法必须工作于synchronized内部，且这两个方法只能由锁对象来调用。
+
+
+Java线程(九)：Condition-线程通信更高效的方式
+
+ 那么引入本篇的主角，Condition，Condition 将 Object 监视器方法（wait、notify 和 notifyAll）分解成截然不同的对象，以便通过将这些对象与任意 Lock 实现组合使用，为每个对象提供多个等待 set （wait-set）。其中，Lock 替代了 synchronized 方法和语句的使用，Condition 替代了 Object 监视器方法的使用。下面将之前写过的一个线程通信的例子替换成用Condition实现(Java线程(三))，代码如下：
+
+[java] view plain copy
+public class ThreadTest2 {  
+    public static void main(String[] args) {  
+        final Business business = new Business();  
+        new Thread(new Runnable() {  
+            @Override  
+            public void run() {  
+                threadExecute(business, "sub");  
+            }  
+        }).start();  
+        threadExecute(business, "main");  
+    }     
+    public static void threadExecute(Business business, String threadType) {  
+        for(int i = 0; i < 100; i++) {  
+            try {  
+                if("main".equals(threadType)) {  
+                    business.main(i);  
+                } else {  
+                    business.sub(i);  
+                }  
+            } catch (InterruptedException e) {  
+                e.printStackTrace();  
+            }  
+        }  
+    }  
+}  
+class Business {  
+    private boolean bool = true;  
+    private Lock lock = new ReentrantLock();  
+    private Condition condition = lock.newCondition();   
+    public /*synchronized*/ void main(int loop) throws InterruptedException {  
+        lock.lock();  
+        try {  
+            while(bool) {                 
+                condition.await();//this.wait();  
+            }  
+            for(int i = 0; i < 100; i++) {  
+                System.out.println("main thread seq of " + i + ", loop of " + loop);  
+            }  
+            bool = true;  
+            condition.signal();//this.notify();  
+        } finally {  
+            lock.unlock();  
+        }  
+    }     
+    public /*synchronized*/ void sub(int loop) throws InterruptedException {  
+        lock.lock();  
+        try {  
+            while(!bool) {  
+                condition.await();//this.wait();  
+            }  
+            for(int i = 0; i < 10; i++) {  
+                System.out.println("sub thread seq of " + i + ", loop of " + loop);  
+            }  
+            bool = false;  
+            condition.signal();//this.notify();  
+        } finally {  
+            lock.unlock();  
+        }  
+    }  
+}  
+        在Condition中，用await()替换wait()，用signal()替换notify()，用signalAll()替换notifyAll()，传统线程的通信方式，Condition都可以实现，这里注意，Condition是被绑定到Lock上的，要创建一个Lock的Condition必须用newCondition()方法。
+        这样看来，Condition和传统的线程通信没什么区别，Condition的强大之处在于它可以为多个线程间建立不同的Condition，下面引入API中的一段代码，加以说明。
+
+[java] view plain copy
+class BoundedBuffer {  
+   final Lock lock = new ReentrantLock();//锁对象  
+   final Condition notFull  = lock.newCondition();//写线程条件   
+   final Condition notEmpty = lock.newCondition();//读线程条件   
+  
+   final Object[] items = new Object[100];//缓存队列  
+   int putptr/*写索引*/, takeptr/*读索引*/, count/*队列中存在的数据个数*/;  
+  
+   public void put(Object x) throws InterruptedException {  
+     lock.lock();  
+     try {  
+       while (count == items.length)//如果队列满了   
+         notFull.await();//阻塞写线程  
+       items[putptr] = x;//赋值   
+       if (++putptr == items.length) putptr = 0;//如果写索引写到队列的最后一个位置了，那么置为0  
+       ++count;//个数++  
+       notEmpty.signal();//唤醒读线程  
+     } finally {  
+       lock.unlock();  
+     }  
+   }  
+  
+   public Object take() throws InterruptedException {  
+     lock.lock();  
+     try {  
+       while (count == 0)//如果队列为空  
+         notEmpty.await();//阻塞读线程  
+       Object x = items[takeptr];//取值   
+       if (++takeptr == items.length) takeptr = 0;//如果读索引读到队列的最后一个位置了，那么置为0  
+       --count;//个数--  
+       notFull.signal();//唤醒写线程  
+       return x;  
+     } finally {  
+       lock.unlock();  
+     }  
+   }   
+ }  
+        这是一个处于多线程工作环境下的缓存区，缓存区提供了两个方法，put和take，put是存数据，take是取数据，内部有个缓存队列，具体变量和方法说明见代码，这个缓存区类实现的功能：
+		有多个线程往里面存数据和从里面取数据，其缓存队列(先进先出后进后出)能缓存的最大数值是100，多个线程间是互斥的，当缓存队列中存储的值达到100时，将写线程阻塞，并唤醒读线程，
+		当缓存队列中存储的值为0时，将读线程阻塞，并唤醒写线程，这也是ArrayBlockingQueue的内部实现。下面分析一下代码的执行过程：
+        1. 一个写线程执行，调用put方法；
+
+        2. 判断count是否为100，显然没有100；
+
+        3. 继续执行，存入值；
+
+        4. 判断当前写入的索引位置++后，是否和100相等，相等将写入索引值变为0，并将count+1；
+
+        5. 仅唤醒读线程阻塞队列中的一个；
+
+        6. 一个读线程执行，调用take方法；
+
+        7. ……
+
+        8. 仅唤醒写线程阻塞队列中的一个。
+
+        这就是多个Condition的强大之处，假设缓存队列中已经存满，那么阻塞的肯定是写线程，唤醒的肯定是读线程，相反，阻塞的肯定是读线程，唤醒的肯定是写线程，
+		那么假设只有一个Condition会有什么效果呢，缓存队列中已经存满，这个Lock不知道唤醒的是读线程还是写线程了，如果唤醒的是读线程，皆大欢喜，如果唤醒的是写线程，那么线程刚被唤醒，
+		又被阻塞了，这时又去唤醒，这样就浪费了很多时间。
+		
+		
+		
+Java线程(篇外篇)：阻塞队列BlockingQueue
+
+	  BlockingQueue最终会有四种状况，抛出异常、返回特殊值、阻塞、超时，下表总结了这些方法：
+
+ 	抛出异常	特殊值	阻塞	超时
+插入	add(e)	offer(e)	put(e)	offer(e, time, unit)
+移除	remove()	poll()	take()	poll(time, unit)
+检查	element()	peek()	不可用	不可用
+       BlockingQueue是个接口，有如下实现类：
+       1. ArrayBlockQueue：一个由数组支持的有界阻塞队列。此队列按 FIFO（先进先出）原则对元素进行排序。创建其对象必须明确大小，像数组一样。
+       2. LinkedBlockQueue：一个可改变大小的阻塞队列。此队列按 FIFO（先进先出）原则对元素进行排序。创建其对象如果没有明确大小，默认值是Integer.MAX_VALUE。链接队列的吞吐量通常要高于基于数组的队列，但是在大多数并发应用程序中，其可预知的性能要低。 
+
+       3. PriorityBlockingQueue：类似于LinkedBlockingQueue，但其所含对象的排序不是FIFO，而是依据对象的自然排序顺序或者是构造函数所带的Comparator决定的顺序。
+
+       4. SynchronousQueue：同步队列。同步队列没有任何容量，每个插入必须等待另一个线程移除，反之亦然。
+
+       下面使用ArrayBlockQueue来实现之前实现过的生产者消/费者模式，代码如下：
+
+[java] view plain copy
+/** 定义一个盘子类，可以放鸡蛋和取鸡蛋 */  
+public class BigPlate {  
+  
+    /** 装鸡蛋的盘子，大小为5 */  
+    private BlockingQueue<Object> eggs = new ArrayBlockingQueue<Object>(5);  
+      
+    /** 放鸡蛋 */  
+    public void putEgg(Object egg) {  
+        try {  
+            eggs.put(egg);// 向盘子末尾放一个鸡蛋，如果盘子满了，当前线程阻塞  
+        } catch (InterruptedException e) {  
+            e.printStackTrace();  
+        }  
+  
+        // 下面输出有时不准确，因为与put操作不是一个原子操作  
+        System.out.println("放入鸡蛋");  
+    }  
+      
+    /** 取鸡蛋 */  
+    public Object getEgg() {  
+        Object egg = null;  
+        try {  
+            egg = eggs.take();// 从盘子开始取一个鸡蛋，如果盘子空了，当前线程阻塞  
+        } catch (InterruptedException e) {  
+            e.printStackTrace();  
+        }  
+  
+        // 下面输出有时不准确，因为与take操作不是一个原子操作  
+        System.out.println("拿到鸡蛋");  
+        return egg;  
+    }  
+      
+    /** 放鸡蛋线程 */  
+    static class AddThread extends Thread {  
+        private BigPlate plate;  
+        private Object egg = new Object();  
+  
+        public AddThread(BigPlate plate) {  
+            this.plate = plate;  
+        }  
+  
+        public void run() {  
+            plate.putEgg(egg);  
+        }  
+    }  
+  
+    /** 取鸡蛋线程 */  
+    static class GetThread extends Thread {  
+        private BigPlate plate;  
+  
+        public GetThread(BigPlate plate) {  
+            this.plate = plate;  
+        }  
+  
+        public void run() {  
+            plate.getEgg();  
+        }  
+    }  
+      
+    public static void main(String[] args) {  
+        BigPlate plate = new BigPlate();  
+        // 先启动10个放鸡蛋线程  
+        for(int i = 0; i < 10; i++) {  
+            new Thread(new AddThread(plate)).start();  
+        }  
+        // 再启动10个取鸡蛋线程  
+        for(int i = 0; i < 10; i++) {  
+            new Thread(new GetThread(plate)).start();  
+        }  
+    }  
+}  
+       执行结果：
+[plain] view plain copy
+放入鸡蛋  
+放入鸡蛋  
+放入鸡蛋  
+放入鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+拿到鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+放入鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+放入鸡蛋  
+拿到鸡蛋  
+拿到鸡蛋  
+拿到鸡蛋  
+拿到鸡蛋  
+拿到鸡蛋  
+ 从结果看，启动10个放鸡蛋线程和10个取鸡蛋线程，前5个放入鸡蛋的线程成功执行，到第6个，发现盘子满了，阻塞住，这时切换到取鸡蛋线程执行，成功实现了生产者/消费者模式。java.util.concurrent包是个强大的包！
+ 
+ 队列在Android中是使用
+ 队列是一种特殊的线性表，特殊之处在于它只允许在表的前端（front）进行删除操作，而在表的后端（rear）进行插入操作，
+ 和栈一样，队列是一种操作受限制的线性表。进行插入操作的端称为队尾，进行删除操作的端称为队头。队列中没有元素时，称为空队列。 
+队列的数据元素又称为队列元素。在队列中插入一个队列元素称为入队，从队列中删除一个队列元素成为出队。因为队列只允许在一段插入，
+在另一端删除，所以只有最早进入队列的元素才能最先从队列中删除，故队列又称为先进先出（FIFO—first in first out）线性表。
+
+Android中的线程池与任务队列
+
+
+Android中的线程池与任务队列:
+
+            在Android手机开发的时候，考虑的资源问题是必须的。当然我们要注重线程的消耗资源的过程，线程在new的时候最消耗内存开销，而在运行的时候远远小于new的时候的内存开销。故我们可以考虑应用线程池与任务队列去解决线程的消耗问题。
+
+
+实例讲解：
+    我们在最初加载的时候，可以new一个线程类，单独线程需要之行的操作。代码如下：
+         1.  DownloadTask.java：
+[java] view plain copy
+  
+[java] view plain copy
+package com.threadExecutorService.test;  
+  
+public class DownloadTask implements Runnable{  
+    public String name;  
+    public DownloadTask(String name){  
+        this.name=name;  
+    }  
+    @Override  
+    public void run() {  
+//      String name=Thread.currentThread().getName();  
+        try {  
+            Thread.sleep(1500);  
+        } catch (InterruptedException e) {  
+            e.printStackTrace();  
+        }  
+        System.out.println(name + " executed OK!");  
+    }  
+    public String getFileId(){  
+        return name;  
+    }  
+  
+}  
+
+2.  线程管理类  DownloadTaskManager.java
+[java] view plain copy
+package com.threadExecutorService.test;  
+import java.util.HashSet;  
+import java.util.LinkedList;  
+import java.util.Set;  
+  
+public class DownloadTaskManager {  
+    private static final String TAG="DownloadTaskManager";  
+    // UI请求队列  
+    private LinkedList<DownloadTask> downloadTasks;  
+    // 任务不能重复  
+    private Set<String> taskIdSet;  
+  
+    private static DownloadTaskManager downloadTaskMananger;  
+  
+    private DownloadTaskManager() {  
+  
+        downloadTasks = new LinkedList<DownloadTask>();  
+        taskIdSet = new HashSet<String>();  
+          
+    }  
+  
+    public static synchronized DownloadTaskManager getInstance() {  
+        if (downloadTaskMananger == null) {  
+            downloadTaskMananger = new DownloadTaskManager();  
+        }  
+        return downloadTaskMananger;  
+    }  
+  
+    //1.先执行  
+    public void addDownloadTask(DownloadTask downloadTask) {  
+        synchronized (downloadTasks) {  
+            if (!isTaskRepeat(downloadTask.getFileId())) {  
+                // 增加下载任务  
+                downloadTasks.addLast(downloadTask);   
+            }  
+        }  
+  
+    }  
+    public boolean isTaskRepeat(String fileId) {  
+        synchronized (taskIdSet) {  
+            if (taskIdSet.contains(fileId)) {  
+                return true;  
+            } else {  
+                System.out.println("下载管理器增加下载任务："+ fileId);  
+                taskIdSet.add(fileId);  
+                return false;  
+            }  
+        }  
+    }  
+      
+    public DownloadTask getDownloadTask() {  
+        synchronized (downloadTasks) {  
+            if (downloadTasks.size() > 0) {  
+                System.out.println("下载管理器增加下载任务："+"取出任务");  
+                DownloadTask downloadTask = downloadTasks.removeFirst();  
+                return downloadTask;  
+            }  
+        }  
+        return null;  
+    }  
+}  
+
+其中downloadTasks表示的是线程队列，taskIdSet是任务队列，作用就是用来管理线程队列，此程序用的是去重操作。已经下载过的文件，不会再次下载。
+3.线程池
+DownloadTaskManagerThread.java
+[java] view plain copy
+/**    
+ * @Title: RequestTaskThread.java  
+ * @Package com.kingsoft.filesystem  
+ * @Description: TODO(用一句话描述该文件做什么)  
+ * @author zengzhaoshuai zengzhaoshuai@kingsoft.com    
+ * @date 2012-2-25 上午10:35:00  
+ * @version V1.0    
+ */  
+package com.threadExecutorService.test;  
+  
+import java.util.concurrent.ExecutorService;  
+import java.util.concurrent.Executors;  
+  
+  
+public class DownloadTaskManagerThread implements Runnable {  
+  
+    private DownloadTaskManager downloadTaskManager;  
+  
+    // 创建一个可重用固定线程数的线程池  
+    private ExecutorService pool;  
+    // 线程池大小  
+    private final int POOL_SIZE = 5;  
+    // 轮询时间  
+    private final int SLEEP_TIME = 1000;  
+    // 是否停止  
+    private boolean isStop = false;  
+  
+    public DownloadTaskManagerThread() {  
+        downloadTaskManager = DownloadTaskManager.getInstance();  
+        pool = Executors.newFixedThreadPool(POOL_SIZE);  
+  
+    }  
+  
+    @Override  
+    public void run() {  
+        // TODO Auto-generated method stub  
+        while (!isStop) {  
+            DownloadTask downloadTask = downloadTaskManager.getDownloadTask();  
+            if (downloadTask != null) {  
+                pool.execute(downloadTask);  
+            } else {  //如果当前未有downloadTask在任务队列中  
+                try {  
+                    // 查询任务完成失败的,重新加载任务队列  
+                    // 轮询,  
+                    Thread.sleep(SLEEP_TIME);  
+                } catch (InterruptedException e) {  
+                    // TODO Auto-generated catch block  
+                    e.printStackTrace();  
+                }  
+            }  
+  
+        }  
+        if (isStop) {  
+            pool.shutdown();  
+        }  
+  
+    }  
+  
+    /** 
+     * @param isStop 
+     *            the isStop to set 
+     */  
+    public void setStop(boolean isStop) {  
+        this.isStop = isStop;  
+    }  
+  
+}  
+
+3.测试类：Test.java
+[java] view plain copy
+package com.threadExecutorService.test;  
+  
+public class Test {  
+    public static void main(String[] args) {  
+        //1.new一个线程管理队列  
+        DownloadTaskManager.getInstance();  
+        //2.new一个线程池，并启动  
+        DownloadTaskManagerThread downloadTaskManagerThread = new DownloadTaskManagerThread();  
+        new Thread(downloadTaskManagerThread).start();  
+  
+        //3.请求下载  
+        String []items=new String[]{"向晨宇1","向晨宇2","向晨宇3","向晨宇4","向晨宇5","向晨宇6","向晨宇7","向晨宇1","向晨宇2"};  
+  
+        for(int i=0;i<items.length;i++){  
+            DownloadTaskManager downloadTaskMananger = DownloadTaskManager  
+                    .getInstance();  
+            downloadTaskMananger.addDownloadTask(new DownloadTask(items[i]));  
+            try {  
+                Thread.sleep(2000);  
+            } catch (InterruptedException e) {  
+                e.printStackTrace();  
+            }  
+        }  
+    }  
+}  
+
+		
 

@@ -1,1 +1,136 @@
-{\rtf1}
+aidl  bunder mesager boundle 
+Android 进阶7：进程通信之 AIDL 的使用
+
+
+
+http://blog.csdn.net/luoyanglizi/article/details/51980630
+
+然后创建接口 aidl 文件，IMyAidl.aidl：
+
+// IMyAidl.aidl
+package net.sxkeji.shixinandroiddemo2;
+
+// Declare any non-default types here with import statements
+import net.sxkeji.shixinandroiddemo2.bean.Person;
+
+interface IMyAidl {
+    /**
+     * 除了基本数据类型，其他类型的参数都需要标上方向类型：in(输入), out(输出), inout(输入输出)
+     */
+    void addPerson(in Person person);
+
+    List<Person> getPersonList();
+}
+
+
+
+public class MyAidlService extends Service {
+    private final String TAG = this.getClass().getSimpleName();
+
+    private ArrayList<Person> mPersons;
+
+    /**
+     * 创建生成的本地 Binder 对象，实现 AIDL 制定的方法
+     */
+    private IBinder mIBinder = new IMyAidl.Stub() {
+
+        @Override
+        public void addPerson(Person person) throws RemoteException {
+            mPersons.add(person);
+        }
+
+        @Override
+        public List<Person> getPersonList() throws RemoteException {
+            return mPersons;
+        }
+    };
+
+    /**
+     * 客户端与服务端绑定时的回调，返回 mIBinder 后客户端就可以通过它远程调用服务端的方法，即实现了通讯
+     * @param intent
+     * @return
+     */
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        mPersons = new ArrayList<>();
+        LogUtils.d(TAG, "MyAidlService onBind");
+        return mIBinder;
+    }
+}
+
+
+写客户端代码
+
+这里我们以一个 Activity 为客户端。
+
+①实现 ServiceConnection 接口，在其中拿到 AIDL 类
+
+private IMyAidl mAidl;
+
+private ServiceConnection mConnection = new ServiceConnection() {
+    @Override
+    public void onServiceConnected(ComponentName name, IBinder service) {
+        //连接后拿到 Binder，转换成 AIDL，在不同进程会返回个代理
+        mAidl = IMyAidl.Stub.asInterface(service);
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName name) {
+        mAidl = null;
+    }
+};
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+在 Activity 中创建一个服务连接对象，在其中调用 IMyAidl.Stub.asInterface() 方法将 Binder 转为 AIDL 类。
+
+②接着绑定服务
+
+Intent intent1 = new Intent(getApplicationContext(), MyAidlService.class);
+bindService(intent1, mConnection, BIND_AUTO_CREATE);
+1
+2
+要执行 IPC，必须使用 bindService() 将应用绑定到服务上。
+
+注意：
+
+5.0 以后要求显式调用 Service，所以我们无法通过 action 或者 filter 的形式调用 Service，具体内容可以看这篇文章 Android 进阶：Service 的一些细节。
+③拿到 AIDL 类后，就可以调用 AIDL 类中定义好的操作，进行跨进程请求
+
+@OnClick(R.id.btn_add_person)
+public void addPerson() {
+    Random random = new Random();
+    Person person = new Person("shixin" + random.nextInt(10));
+
+    try {
+        mAidl.addPerson(person);
+        List<Person> personList = mAidl.getPersonList();
+        mTvResult.setText(personList.toString());
+    } catch (RemoteException e) {
+        e.printStackTrace();
+    }
+}
+
+你真的理解AIDL中的in，out，inout么？
+
+https://www.jianshu.com/p/ddbb40c7a251
+
+并且 in 作为定向 tag 表示数据只能由客户端流向服务端，out 反之，inout 则为数据可以双向流通。如果是这样的话，那么客户端的 log 信息我们也可以有一些猜测了：既然 in 表示数据只能由客户端流向服务端，那么客户端里它的返回值应当是一个空的 Book 对象了；而 out 和 inout 作为定向 tag 的方法里它们的返回值则应当是与服务端里一样的。
+
+作者：lypeer
+链接：https://www.jianshu.com/p/ddbb40c7a251
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
