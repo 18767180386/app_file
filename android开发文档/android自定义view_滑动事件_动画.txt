@@ -363,3 +363,194 @@ mOnTouchListener != null && (mViewFlags & ENABLED_MASK) == ENABLED &&
 Android事件冲突场景分析及一般解决思路
 
 
+public void requestDisallowInterceptTouchEvent(boolean disallowIntercept);
+ 
+true ：告诉所有父控件不要拦截，事件交由childrenView处理
+
+
+ Code 1
+    //该代码展示的是站在View的角度，在子View的dispatchTouchEvent()中解决冲突的实战代码
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        int x = (int) ev.getX();
+        int y = (int) ev.getY();
+        switch (ev.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                /**
+                 * 子View的所有父ViewGroup都会跳过onInterceptTouchEvent的回调
+                 * 相当于ViewGroup的流程是dispatchTouchEvent() --> onTouchEvent()
+                 */
+                getParent().requestDisallowInterceptTouchEvent(true);
+                break;
+            case MotionEvent.ACTION_MOVE:
+                int deltaX = x - mLastX;
+                int deltaY = y - mLastY;
+                if (Math.abs(deltaX) > Math.abs(deltaY) + 5) {//水平滑动，使得父类可以执行onInterceptTouchEvent
+                    /**
+                     * 不让所有的父容器跳过onInterceptTouchEvent()
+                     * 相当于ViewGroup的流程是:dispatchTouchEvent() --> onInterceptTouchEvent() --> onTouchEvent()
+                     * 也就是ViewGroup拦截以后交给自己的onTouchEvent()来处理
+                     */
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                }
+                break;
+        }
+        mLastX = x;
+        mLastY = y;
+        return super.dispatchTouchEvent(ev);
+    }
+
+作者：theFullHorizon
+链接：https://www.jianshu.com/p/c62fb2f25057
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+false：告诉所有父控件拦截。在父控件的onInterceptTouchEvent()中可能类似这样的处理
+
+@Override
+    public boolean onInterceptTouchEvent(MotionEvent event) {
+        int x = (int) event.getX();
+        int y = (int) event.getY();
+        if(event.getAction() == MotionEvent.ACTION_DOWN){
+            mLastX = x;
+            mLastY = y;
+            if (!mScroller.isFinished()) {
+                mScroller.abortAnimation();
+                return true;
+            }
+            return false;
+        }else{
+            //如果是非down事件，说明子View并没有拦截父类的onInterceptTouchEvent
+           //说明该事件交由父类处理，所以不需要再传递给子类，返回true
+           return true;
+        }
+    }
+
+作者：theFullHorizon
+链接：https://www.jianshu.com/p/c62fb2f25057
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+
+@Override
+    public boolean onInterceptTouchEvent(MotionEvent event) {
+        int x = (int) event.getX();
+        int y = (int) event.getY();
+        if(event.getAction() == MotionEvent.ACTION_DOWN){
+            mLastX = x;
+            mLastY = y;
+            if (!mScroller.isFinished()) {
+                mScroller.abortAnimation();
+                return true;
+            }
+            return false;
+        }else{
+            //如果是非down事件，说明子View并没有拦截父类的onInterceptTouchEvent
+           //说明该事件交由父类处理，所以不需要再传递给子类，返回true
+           return true;
+        }
+    }
+
+作者：theFullHorizon
+链接：https://www.jianshu.com/p/c62fb2f25057
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+@Override
+    public boolean onInterceptTouchEvent(MotionEvent event) {
+        int x = (int) event.getX();
+        int y = (int) event.getY();
+        if(event.getAction() == MotionEvent.ACTION_DOWN){
+            mLastX = x;
+            mLastY = y;
+            if (!mScroller.isFinished()) {
+                mScroller.abortAnimation();
+                return true;
+            }
+            return false;
+        }else{
+            //如果是非down事件，说明子View并没有拦截父类的onInterceptTouchEvent
+           //说明该事件交由父类处理，所以不需要再传递给子类，返回true
+           return true;
+        }
+    }
+
+作者：theFullHorizon
+链接：https://www.jianshu.com/p/c62fb2f25057
+來源：简书
+
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+
+ChildView的角度
+Code 2
+    // //该代码展示的是站在View的角度，在子View的onTouchEvent()中解决冲突的实战代码
+    mListView.setOnTouchListener(new View.OnTouchListener() {
+    @Override
+    public boolean onTouch(View v, MotionEvent event) {
+        int action = event.getAction();
+        if(action == MotionEvent.ACTION_DOWN) {
+            mLastY = event.getY();
+        }
+        if(action == MotionEvent.ACTION_MOVE) {
+            int top = mListView.getChildAt(0).getTop();
+            float nowY = event.getY();
+            if(!isSvToBottom) {
+                // 允许scrollview拦截点击事件, scrollView滑动
+                mScrollView.requestDisallowInterceptTouchEvent(false);
+            } else if(top == 0 && nowY - mLastY > THRESHOLD_Y_LIST_VIEW) {
+                // 允许scrollview拦截点击事件, scrollView滑动
+                mScrollView.requestDisallowInterceptTouchEvent(false);
+            } else {
+                // 不允许scrollview拦截点击事件， listView滑动
+                mScrollView.requestDisallowInterceptTouchEvent(true);
+            }
+        }
+        return false;
+    }
+});
+
+作者：theFullHorizon
+链接：https://www.jianshu.com/p/c62fb2f25057
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+ViewGroup角度
+@Override  
+   public boolean onInterceptTouchEvent(MotionEvent ev) {  
+       boolean intercepted = false;  
+       int x = (int) ev.getX();  
+       int y = (int) ev.getY();  
+       switch (ev.getAction()) {  
+           case MotionEvent.ACTION_DOWN:  
+               //down事件不拦截，否则无法传给子元素  
+               intercepted = false;  
+               if (!mScroller.isFinished()) {  
+                   mScroller.abortAnimation();  
+                   intercepted = true;  
+               }  
+               break;  
+           case MotionEvent.ACTION_MOVE:  
+               int deltaX = x - mLastXIntercept;  
+               int deltaY = y - mLastYIntercept;  
+               //水平滑动则拦截  
+               if (Math.abs(deltaX) > Math.abs(deltaY) + 5) {  
+                   intercepted = true;  
+               } else {  
+                   intercepted = false;  
+               }  
+               break;  
+           case MotionEvent.ACTION_UP:  
+               //不拦截，否则子元素无法收到  
+               intercepted = false;  
+               break;  
+       }  
+      ...
+      return intercepted;  
+   }
+
+作者：theFullHorizon
+链接：https://www.jianshu.com/p/c62fb2f25057
+來源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
